@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<meta name="format-detection" content="telephone=no">
+<title>OneShot · 对准就拍</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500&family=JetBrains+Mono:wght@300;400&family=Noto+Sans+SC:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg: #0a0a0a;
+  --fg: #ffffff;
+  --accent: #f5b841;
+  --accent-deep: #d99a1f;
+  --dim: rgba(255, 255, 255, 0.35);
+  --dim-2: rgba(255, 255, 255, 0.6);
+  --line: rgba(255, 255, 255, 0.12);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+html, body {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Geist', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+button { font-family: inherit; }
+
+/* ===== Start screen ===== */
+#start {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo-mark {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--fg);
+  border-radius: 50%;
+  margin-bottom: 2.5rem;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-mark::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+#start h1 {
+  font-family: 'Geist', sans-serif;
+  font-weight: 200;
+  font-size: 3.8rem;
+  letter-spacing: -0.04em;
+  margin-bottom: 0.6rem;
+  line-height: 1;
+}
+
+.tagline {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 300;
+  font-size: 0.72rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--dim-2);
+  margin-bottom: 3.5rem;
+}
+
+#start-btn {
+  background: transparent;
+  border: 1px solid var(--fg);
+  color: var(--fg);
+  padding: 1.1rem 3.2rem;
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+#start-btn:active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  transform: scale(0.97);
+}
+
+.hint {
+  position: absolute;
+  bottom: calc(2.5rem + var(--safe-bottom));
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 300;
+  color: var(--dim);
+  line-height: 1.8;
+  padding: 0 2rem;
+  max-width: 360px;
+}
+
+.hint strong {
+  color: var(--dim-2);
+  font-weight: 400;
+}
+
+/* ===== Camera ===== */
+#camera-view {
+  position: fixed;
+  inset: 0;
+  display: none;
+}
+#camera-view.active { display: block; }
+
+video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+/* Vignette for cinematic feel */
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.35) 100%);
+  z-index: 2;
+}
+
+/* ===== Silhouette overlay ===== */
+#silhouette {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 3;
+}
+
+#silhouette svg {
+  width: 62%;
+  max-width: 300px;
+  height: auto;
+  opacity: 0.42;
+  animation: breathe 3.2s ease-in-out infinite;
+  transition: opacity 0.5s ease;
+  filter: drop-shadow(0 0 12px rgba(0,0,0,0.4));
+}
+
+#silhouette.aligned svg {
+  opacity: 0.88;
+  animation-duration: 4.5s;
+}
+
+#silhouette svg .stroke {
+  stroke: white;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-dasharray: 6 6;
+  stroke-linecap: round;
+  transition: stroke 0.6s ease;
+}
+
+#silhouette.aligned svg .stroke {
+  stroke: var(--accent);
+  stroke-dasharray: none;
+}
+
+#silhouette svg .dot {
+  fill: white;
+  opacity: 0.4;
+  transition: fill 0.6s ease;
+}
+
+#silhouette.aligned svg .dot {
+  fill: var(--accent);
+  opacity: 0.9;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+/* ===== Top bar: scene label ===== */
+#scene-label {
+  position: absolute;
+  top: calc(1.3rem + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--dim-2);
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  z-index: 4;
+  white-space: nowrap;
+}
+#scene-label.visible { opacity: 1; }
+#scene-label .dot-pulse {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  background: var(--accent);
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* ===== Align hint ===== */
+#align-hint {
+  position: absolute;
+  bottom: calc(180px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: 4;
+  white-space: nowrap;
+}
+#align-hint.visible { opacity: 1; }
+
+/* ===== Settings gear (top-left) ===== */
+#settings {
+  position: absolute;
+  top: calc(1.1rem + var(--safe-top));
+  left: calc(1.1rem + var(--safe-left));
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.55;
+  transition: opacity 0.3s, transform 0.2s;
+  z-index: 5;
+  color: var(--fg);
+}
+#settings:active { opacity: 1; transform: scale(0.9); }
+#settings svg { width: 20px; height: 20px; }
+
+#settings.pressing {
+  opacity: 1;
+  background: rgba(245, 184, 65, 0.15);
+}
+#settings.pressing svg { color: var(--accent); }
+
+/* Long-press progress ring */
+.press-ring {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.press-ring circle {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 138;
+  stroke-dashoffset: 138;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 0.5s linear;
+}
+#settings.pressing .press-ring circle {
+  stroke-dashoffset: 0;
+}
+
+/* ===== Shutter ===== */
+#controls {
+  position: absolute;
+  bottom: calc(2.2rem + var(--safe-bottom));
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+
+#shutter {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  border: 3px solid var(--fg);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+#shutter::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  background: var(--fg);
+  border-radius: 50%;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0.2, 1);
+}
+#shutter:active { transform: scale(0.94); }
+#shutter:active::before {
+  inset: 10px;
+  background: var(--accent);
+}
+#shutter.ready::before {
+  background: var(--accent);
+  box-shadow: 0 0 24px rgba(245, 184, 65, 0.5);
+}
+
+/* ===== Flash overlay ===== */
+#flash {
+  position: fixed;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+#flash.flashing { animation: flash 0.32s ease-out; }
+@keyframes flash {
+  0% { opacity: 0; }
+  20% { opacity: 0.92; }
+  100% { opacity: 0; }
+}
+
+/* ===== Captured preview ===== */
+#preview {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 45;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+#preview.visible { display: flex; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+#preview-img {
+  max-width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+#preview-meta {
+  margin-top: 1.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+#preview-save-hint {
+  margin-top: 0.4rem;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 0.72rem;
+  color: var(--dim);
+  font-weight: 300;
+}
+
+#preview-close {
+  position: absolute;
+  top: calc(1.1rem + var(--safe-top));
+  right: calc(1.1rem + var(--safe-right));
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  color: var(--fg);
+  font-size: 1.4rem;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+/* ===== Pro panel (slides up) ===== */
+#pro {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  transform: translateY(100%);
+  transition: transform 0.45s cubic-bezier(0.2, 0, 0.2, 1);
+  z-index: 60;
+  padding: 1.8rem 1.5rem calc(2rem + var(--safe-bottom));
+  border-top: 1px solid var(--line);
+  border-radius: 20px 20px 0 0;
+}
+#pro.open { transform: translateY(0); }
+
+.pro-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--dim);
+  border-radius: 2px;
+  margin: 0 auto 1.3rem;
+}
+
+#pro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1.4rem;
+}
+
+#pro-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 400;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--dim-2);
+}
+
+#pro-title .accent { color: var(--accent); }
+
+#pro-close {
+  background: none;
+  border: none;
+  color: var(--fg);
+  font-size: 1.6rem;
+  cursor: pointer;
+  opacity: 0.6;
+  line-height: 1;
+  padding: 0;
+  font-weight: 200;
+}
+
+.param-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 1.3rem;
+}
+
+.param {
+  text-align: left;
+  padding: 0.8rem 0.85rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.param-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  color: var(--dim);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+
+.param-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+.param-value.accent { color: var(--accent); }
+
+#pro-reasoning {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 0.74rem;
+  font-weight: 300;
+  color: var(--dim-2);
+  line-height: 1.75;
+  padding: 0.9rem 1rem;
+  background: rgba(245, 184, 65, 0.05);
+  border: 1px solid rgba(245, 184, 65, 0.15);
+  border-radius: 10px;
+}
+#pro-reasoning::before {
+  content: 'AI · ';
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+}
+
+/* ===== Error panel ===== */
+#error {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  z-index: 200;
+}
+#error.visible { display: flex; }
+#error h2 {
+  font-family: 'Geist', sans-serif;
+  font-weight: 300;
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+}
+#error p {
+  font-family: 'Noto Sans SC', sans-serif;
+  color: var(--dim-2);
+  font-size: 0.88rem;
+  font-weight: 300;
+  line-height: 1.8;
+  max-width: 340px;
+}
+#error button {
+  margin-top: 2rem;
+  background: transparent;
+  border: 1px solid var(--fg);
+  color: var(--fg);
+  padding: 0.8rem 2rem;
+  border-radius: 100px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+</style>
+</head>
+<body>
+
+<!-- ============ Start Screen ============ -->
+<div id="start">
+  <div class="logo-mark"></div>
+  <h1>OneShot</h1>
+  <div class="tagline">对 · 准 · 就 · 拍</div>
+  <button id="start-btn">开始</button>
+  <div class="hint">
+    把人物放进屏幕上的<strong>轮廓</strong>里<br>
+    AI 自动选姿势 · 自动调参数 · 你只管按快门
+  </div>
+</div>
+
+<!-- ============ Camera View ============ -->
+<div id="camera-view">
+  <video id="video" autoplay playsinline muted webkit-playsinline></video>
+  <div class="vignette"></div>
+
+  <div id="silhouette">
+    <svg id="svg-pose" viewBox="0 0 200 400" xmlns="http://www.w3.org/2000/svg">
+      <!-- populated dynamically -->
+    </svg>
+  </div>
+
+  <div id="scene-label">
+    <span class="dot-pulse"></span><span id="scene-text">ANALYZING</span>
+  </div>
+
+  <div id="align-hint">按下快门</div>
+
+  <button id="settings" aria-label="设置">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+    </svg>
+    <svg class="press-ring" viewBox="0 0 44 44"><circle cx="22" cy="22" r="22"/></svg>
+  </button>
+
+  <div id="controls">
+    <button id="shutter" aria-label="拍照"></button>
+  </div>
+
+  <div id="flash"></div>
+</div>
+
+<!-- ============ Captured Preview ============ -->
+<div id="preview">
+  <button id="preview-close" aria-label="关闭">×</button>
+  <img id="preview-img" alt="">
+  <div id="preview-meta">CAPTURED</div>
+  <div id="preview-save-hint">长按图片保存到相册</div>
+</div>
+
+<!-- ============ Pro Panel ============ -->
+<div id="pro">
+  <div class="pro-handle"></div>
+  <div id="pro-header">
+    <div id="pro-title">Pro · <span class="accent">M-Mode</span> · Auto</div>
+    <button id="pro-close" aria-label="关闭">×</button>
+  </div>
+  <div class="param-grid">
+    <div class="param">
+      <div class="param-label">ISO</div>
+      <div class="param-value" id="p-iso">—</div>
+    </div>
+    <div class="param">
+      <div class="param-label">Shutter</div>
+      <div class="param-value" id="p-shutter">—</div>
+    </div>
+    <div class="param">
+      <div class="param-label">EV</div>
+      <div class="param-value" id="p-ev">—</div>
+    </div>
+    <div class="param">
+      <div class="param-label">AF</div>
+      <div class="param-value accent" id="p-af">AF-C</div>
+    </div>
+    <div class="param">
+      <div class="param-label">WB</div>
+      <div class="param-value accent" id="p-wb">—</div>
+    </div>
+    <div class="param">
+      <div class="param-label">Scene</div>
+      <div class="param-value accent" id="p-scene" style="font-size:0.82rem;">—</div>
+    </div>
+  </div>
+  <div id="pro-reasoning">参数由当前取景的光照、主体距离、色温推算，场景变化会实时调整。</div>
+</div>
+
+<!-- ============ Error ============ -->
+<div id="error">
+  <h2>无法启动相机</h2>
+  <p id="error-msg"></p>
+  <button onclick="location.reload()">重试</button>
+</div>
+
+<script>
+/* ========================================================================
+ * OneShot demo — 单文件相机概念演示
+ * 实际产品里 scene/pose 识别用端侧 VLM；这里用画面亮度+饱和度模拟
+ * ====================================================================== */
+
+const $ = (id) => document.getElementById(id);
+
+const video = $('video');
+const svgPose = $('svg-pose');
+const silhouette = $('silhouette');
+const sceneLabel = $('scene-label');
+const sceneText = $('scene-text');
+const alignHint = $('align-hint');
+const shutterBtn = $('shutter');
+const settingsBtn = $('settings');
+const flashEl = $('flash');
+const previewEl = $('preview');
+const previewImg = $('preview-img');
+const previewCloseBtn = $('preview-close');
+const proEl = $('pro');
+const proCloseBtn = $('pro-close');
+const errorEl = $('error');
+const errorMsg = $('error-msg');
+const startEl = $('start');
+const startBtn = $('start-btn');
+const cameraView = $('camera-view');
+
+/* -------- Pose library -------- */
+/* Each pose: a pre-configured silhouette + scene label + M-mode params */
+const POSES = {
+  portrait: {
+    label: 'PORTRAIT · 人像半身',
+    sceneName: '人像半身',
+    params: { iso: '200', shutter: '1/120', ev: '+0.3', wb: '5200K' },
+    reasoning: '偏暖半身像：适度提亮肤色，1/120 足够冻结微小动作，浅景深建议开启。',
+    svg: `
+      <ellipse class="stroke" cx="100" cy="95" rx="40" ry="50"/>
+      <path class="stroke" d="M 78 145 Q 82 162 58 185 L 38 260 L 52 340 L 148 340 L 162 260 L 142 185 Q 118 162 122 145"/>
+      <circle class="dot" cx="87" cy="92" r="2.5"/>
+      <circle class="dot" cx="113" cy="92" r="2.5"/>
+    `
+  },
+  full_body: {
+    label: 'OUTDOOR · 全身环境',
+    sceneName: '户外全身',
+    params: { iso: '100', shutter: '1/320', ev: '-0.3', wb: '5800K' },
+    reasoning: '户外强光，低 ISO 保持画质，快门快避免过曝，轻微欠曝保留天空氛围。',
+    svg: `
+      <ellipse class="stroke" cx="100" cy="50" rx="22" ry="28"/>
+      <path class="stroke" d="M 88 80 Q 92 92 82 112 L 72 180 L 76 248"/>
+      <path class="stroke" d="M 112 80 Q 108 92 118 112 L 128 180 L 124 248"/>
+      <path class="stroke" d="M 76 248 L 82 330 L 92 380"/>
+      <path class="stroke" d="M 124 248 L 118 330 L 108 380"/>
+      <path class="stroke" d="M 82 112 L 58 200 L 63 252"/>
+      <path class="stroke" d="M 118 112 L 142 200 L 137 252"/>
+    `
+  },
+  close_up: {
+    label: 'CLOSE · 特写',
+    sceneName: '室内特写',
+    params: { iso: '640', shutter: '1/60', ev: '+0.7', wb: '3800K' },
+    reasoning: '室内暖光，高 ISO 保快门速度，色温偏暖保留氛围，曝光略加提亮人脸。',
+    svg: `
+      <ellipse class="stroke" cx="100" cy="170" rx="75" ry="95"/>
+      <path class="stroke" d="M 18 330 Q 55 285 100 292 Q 145 285 182 330 L 182 395 L 18 395 Z" stroke-opacity="0.7"/>
+      <circle class="dot" cx="78" cy="150" r="3"/>
+      <circle class="dot" cx="122" cy="150" r="3"/>
+      <path class="stroke" d="M 85 205 Q 100 213 115 205" stroke-dasharray="none" stroke-opacity="0.5"/>
+    `
+  },
+  threequarter: {
+    label: 'STANDING · 站姿三分',
+    sceneName: '站姿三分',
+    params: { iso: '320', shutter: '1/160', ev: '0.0', wb: '4800K' },
+    reasoning: '均衡场景，中等 ISO 兼顾画质和快门，标准白平衡还原自然肤色。',
+    svg: `
+      <ellipse class="stroke" cx="100" cy="70" rx="28" ry="36"/>
+      <path class="stroke" d="M 82 108 Q 78 130 62 158 L 50 240 L 58 330 L 95 380"/>
+      <path class="stroke" d="M 118 108 Q 122 130 138 158 L 150 240 L 142 330 L 105 380"/>
+      <path class="stroke" d="M 62 158 L 45 225 L 52 272"/>
+      <path class="stroke" d="M 138 158 L 158 225 L 148 272"/>
+    `
+  }
+};
+
+let currentPoseKey = null;
+let stream = null;
+let lastMotionTime = Date.now();
+let stableCheckInterval = null;
+let analyzeInterval = null;
+let isAligned = false;
+let motionAvailable = false;
+
+/* -------- Analysis canvas -------- */
+const analyzeCanvas = document.createElement('canvas');
+analyzeCanvas.width = 40;
+analyzeCanvas.height = 40;
+const analyzeCtx = analyzeCanvas.getContext('2d', { willReadFrequently: true });
+
+const captureCanvas = document.createElement('canvas');
+const captureCtx = captureCanvas.getContext('2d');
+
+/* -------- Set active pose (cross-fades SVG) -------- */
+function setPose(key) {
+  if (currentPoseKey === key) return;
+  const pose = POSES[key];
+  if (!pose) return;
+  currentPoseKey = key;
+
+  // Fade, swap, fade back
+  svgPose.style.transition = 'opacity 0.4s ease';
+  svgPose.style.opacity = '0';
+  setTimeout(() => {
+    svgPose.innerHTML = pose.svg;
+    svgPose.style.opacity = '';
+  }, 380);
+
+  // Update scene label
+  sceneText.textContent = pose.label;
+  sceneLabel.classList.add('visible');
+
+  // Update pro panel params
+  $('p-iso').textContent = pose.params.iso;
+  $('p-shutter').textContent = pose.params.shutter;
+  $('p-ev').textContent = pose.params.ev;
+  $('p-wb').textContent = pose.params.wb;
+  $('p-scene').textContent = pose.sceneName;
+  $('pro-reasoning').textContent = pose.reasoning;
+}
+
+/* -------- Scene analysis (brightness + saturation heuristic) --------
+ * Real product: on-device VLM outputs structured scene tags.
+ * Demo: simulate with frame luminance + color variance.
+ */
+function analyzeScene() {
+  if (!video.videoWidth) return;
+
+  try {
+    analyzeCtx.drawImage(video, 0, 0, 40, 40);
+    const data = analyzeCtx.getImageData(0, 0, 40, 40).data;
+
+    let totalBright = 0;
+    let totalSat = 0;
+    let warmBias = 0; // (R - B) avg, positive = warm scene
+    const n = data.length / 4;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i+1], b = data[i+2];
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      totalBright += (r + g + b) / 3;
+      totalSat += max === 0 ? 0 : (max - min) / max;
+      warmBias += (r - b);
+    }
+
+    const avgBright = totalBright / n;
+    const avgSat = totalSat / n;
+    const avgWarm = warmBias / n;
+
+    // Heuristic mapping → pose
+    let next;
+    if (avgBright > 135 && avgSat > 0.25) {
+      next = 'full_body'; // bright outdoor, saturated
+    } else if (avgBright < 55) {
+      next = 'close_up'; // very dim → likely close subject
+    } else if (avgWarm > 15 && avgBright < 110) {
+      next = 'close_up'; // warm dim indoor
+    } else if (avgBright > 100) {
+      next = 'threequarter'; // daylight/indoor bright
+    } else {
+      next = 'portrait'; // default indoor portrait
+    }
+
+    setPose(next);
+  } catch (e) {
+    // video might not be ready; ignore
+  }
+}
+
+/* -------- Start camera -------- */
+async function startCamera() {
+  // Request motion permission (iOS 13+) on user gesture FIRST
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const resp = await DeviceMotionEvent.requestPermission();
+      if (resp === 'granted') motionAvailable = true;
+    } catch (e) { /* denied or not supported — fallback to timer */ }
+  } else if (typeof DeviceMotionEvent !== 'undefined') {
+    motionAvailable = true;
+  }
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+
+    // Wait for first frame
+    await new Promise((res) => {
+      if (video.videoWidth) res();
+      else video.addEventListener('loadedmetadata', res, { once: true });
+    });
+
+    startEl.style.display = 'none';
+    cameraView.classList.add('active');
+
+    // Initial pose (will re-detect on first analyze)
+    setPose('portrait');
+
+    // Periodic scene analysis
+    analyzeInterval = setInterval(analyzeScene, 900);
+
+    // Stability detection
+    if (motionAvailable) {
+      window.addEventListener('devicemotion', onDeviceMotion);
+    } else {
+      // No motion API — auto-ready after 2s of inactivity
+      lastMotionTime = Date.now();
+    }
+    stableCheckInterval = setInterval(checkStability, 250);
+
+  } catch (err) {
+    showError(err);
+  }
+}
+
+/* -------- Motion (gyro/accel) for stability -------- */
+let lastAcc = { x: 0, y: 0, z: 0 };
+let accInit = false;
+
+function onDeviceMotion(e) {
+  const acc = e.accelerationIncludingGravity || e.acceleration || {};
+  const x = acc.x || 0, y = acc.y || 0, z = acc.z || 0;
+  if (!accInit) {
+    lastAcc = { x, y, z };
+    accInit = true;
+    return;
+  }
+  const delta = Math.abs(x - lastAcc.x) + Math.abs(y - lastAcc.y) + Math.abs(z - lastAcc.z);
+  lastAcc = { x, y, z };
+
+  if (delta > 0.35) {
+    lastMotionTime = Date.now();
+  }
+}
+
+function checkStability() {
+  const stableFor = Date.now() - lastMotionTime;
+  const nowAligned = stableFor > 1100;
+  if (nowAligned !== isAligned) {
+    isAligned = nowAligned;
+    silhouette.classList.toggle('aligned', isAligned);
+    alignHint.classList.toggle('visible', isAligned);
+    shutterBtn.classList.toggle('ready', isAligned);
+  }
+}
+
+/* -------- Error handling -------- */
+function showError(err) {
+  console.error(err);
+  let msg = '';
+  const isHttps = location.protocol === 'https:' || location.hostname === 'localhost';
+
+  if (!isHttps) {
+    msg = '相机 API 要求 HTTPS 环境。请把本页部署到 HTTPS 域名（例如 Vercel、GitHub Pages），或通过 localhost 访问。';
+  } else if (err && err.name === 'NotAllowedError') {
+    msg = '相机权限被拒绝。请在浏览器设置里允许访问后刷新页面。';
+  } else if (err && err.name === 'NotFoundError') {
+    msg = '没有找到可用的相机设备。';
+  } else {
+    msg = (err && err.message) ? err.message : '未知错误';
+  }
+  errorMsg.textContent = msg;
+  errorEl.classList.add('visible');
+}
+
+/* -------- Shutter -------- */
+shutterBtn.addEventListener('click', capturePhoto);
+
+async function capturePhoto() {
+  if (!video.videoWidth) return;
+
+  // Flash
+  flashEl.classList.remove('flashing');
+  void flashEl.offsetWidth; // restart anim
+  flashEl.classList.add('flashing');
+
+  // Haptic (if supported)
+  if (navigator.vibrate) navigator.vibrate(30);
+
+  // Capture at full resolution
+  captureCanvas.width = video.videoWidth;
+  captureCanvas.height = video.videoHeight;
+  captureCtx.drawImage(video, 0, 0);
+
+  const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.93);
+
+  setTimeout(() => {
+    previewImg.src = dataUrl;
+    previewEl.classList.add('visible');
+  }, 200);
+}
+
+previewCloseBtn.addEventListener('click', () => {
+  previewEl.classList.remove('visible');
+});
+
+/* -------- Long-press settings → open pro panel -------- */
+let pressTimer = null;
+let pressStartTime = 0;
+
+function startPress(e) {
+  e.preventDefault();
+  pressStartTime = Date.now();
+  settingsBtn.classList.add('pressing');
+  pressTimer = setTimeout(() => {
+    settingsBtn.classList.remove('pressing');
+    proEl.classList.add('open');
+    if (navigator.vibrate) navigator.vibrate(40);
+    pressTimer = null;
+  }, 500);
+}
+
+function endPress() {
+  settingsBtn.classList.remove('pressing');
+  if (pressTimer) {
+    // Short tap - no action (or could show hint)
+    clearTimeout(pressTimer);
+    pressTimer = null;
+    // Optional: flash a hint
+    const held = Date.now() - pressStartTime;
+    if (held < 500 && held > 50) {
+      sceneText.textContent = '长按齿轮进入专业模式';
+      sceneLabel.classList.add('visible');
+      setTimeout(() => {
+        if (currentPoseKey) sceneText.textContent = POSES[currentPoseKey].label;
+      }, 1500);
+    }
+  }
+}
+
+settingsBtn.addEventListener('pointerdown', startPress);
+settingsBtn.addEventListener('pointerup', endPress);
+settingsBtn.addEventListener('pointerleave', endPress);
+settingsBtn.addEventListener('pointercancel', endPress);
+
+proCloseBtn.addEventListener('click', () => proEl.classList.remove('open'));
+
+// Swipe down on pro panel to close
+let proTouchStart = null;
+proEl.addEventListener('touchstart', (e) => {
+  proTouchStart = e.touches[0].clientY;
+}, { passive: true });
+proEl.addEventListener('touchmove', (e) => {
+  if (proTouchStart === null) return;
+  const dy = e.touches[0].clientY - proTouchStart;
+  if (dy > 80) {
+    proEl.classList.remove('open');
+    proTouchStart = null;
+  }
+}, { passive: true });
+proEl.addEventListener('touchend', () => { proTouchStart = null; });
+
+/* -------- Lifecycle -------- */
+startBtn.addEventListener('click', startCamera);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    if (analyzeInterval) clearInterval(analyzeInterval);
+    if (stableCheckInterval) clearInterval(stableCheckInterval);
+  }
+});
+
+// Prevent pinch zoom
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('dblclick', (e) => e.preventDefault());
+</script>
+</body>
+</html>
